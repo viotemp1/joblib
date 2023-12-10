@@ -309,15 +309,15 @@ def main(fd, verbose=0):
     finally:
         # all processes have terminated; cleanup any remaining resources
         def _unlink_resources(rtype_registry, rtype):
-            if rtype_registry:
-                try:
-                    warnings.warn(
-                        "resource_tracker: There appear to be "
-                        f"{len(rtype_registry)} leaked {rtype} objects to "
-                        "clean up at shutdown"
-                    )
-                except Exception:
-                    pass
+            # if rtype_registry:
+            #     try:
+            #         warnings.warn(
+            #             "resource_tracker: There appear to be "
+            #             f"{len(rtype_registry)} leaked {rtype} objects to "
+            #             "clean up at shutdown"
+            #         )
+            #     except Exception:
+            #         pass
             for name in rtype_registry:
                 # For some reason the process which created and registered this
                 # resource has failed to unregister it. Presumably it has
