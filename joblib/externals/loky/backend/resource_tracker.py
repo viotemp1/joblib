@@ -327,7 +327,8 @@ def main(fd, verbose=0):
                     if verbose:
                         util.debug(f"[ResourceTracker] unlink {name}")
                 except Exception as e:
-                    warnings.warn(f"resource_tracker: {name}: {e!r}")
+                    # warnings.warn(f"resource_tracker: {name}: {e!r}")
+                    pass
 
         for rtype, rtype_registry in registry.items():
             if rtype == "folder":
