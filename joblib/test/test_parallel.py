@@ -362,6 +362,28 @@ def test_parallel_pickling():
             UnpicklableObject()) for _ in range(10))
 
 
+@with_numpy
+@with_multiprocessing
+@parametrize('byteorder', ['<', '>', '='])
+def test_parallel_byteorder_corruption(byteorder):
+
+    def inspect_byteorder(x):
+        return x, x.dtype.byteorder
+
+    x = np.arange(6).reshape((2, 3)).view(f'{byteorder}i4')
+
+    initial_np_byteorder = x.dtype.byteorder
+
+    result = Parallel(n_jobs=2, backend='loky')(
+        delayed(inspect_byteorder)(x) for _ in range(3)
+    )
+
+    for x_returned, byteorder_in_worker in result:
+        assert byteorder_in_worker == initial_np_byteorder
+        assert byteorder_in_worker == x_returned.dtype.byteorder
+        np.testing.assert_array_equal(x, x_returned)
+
+
 @parametrize('backend', PARALLEL_BACKENDS)
 def test_parallel_timeout_success(backend):
     # Check that timeout isn't thrown when function is fast enough
@@ -632,6 +654,29 @@ def test_invalid_njobs(backend):
     with raises(ValueError) as excinfo:
         Parallel(n_jobs=0, backend=backend)._initialize_backend()
     assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs=0.5, backend=backend)._initialize_backend()
+    assert "n_jobs == 0 in Parallel has no meaning" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="2.3", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+    with raises(ValueError) as excinfo:
+        Parallel(n_jobs="invalid_str", backend=backend)._initialize_backend()
+    assert "n_jobs could not be converted to int" in str(excinfo.value)
+
+
+@with_multiprocessing
+@parametrize('backend', PARALLEL_BACKENDS)
+@parametrize('n_jobs', ['2', 2.3, 2])
+def test_njobs_converted_to_int(backend, n_jobs):
+    p = Parallel(n_jobs=n_jobs, backend=backend)
+    assert p._effective_n_jobs() == 2
+
+    res = p(delayed(square)(i) for i in range(10))
+    assert all(r == square(i) for i, r in enumerate(res))
 
 
 def test_register_parallel_backend():
@@ -1910,7 +1955,7 @@ def test_threadpool_limitation_in_child_loky(n_jobs):
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     workers_threadpool_infos = Parallel(backend="loky", n_jobs=n_jobs)(
         delayed(_check_numpy_threadpool_limits)() for i in range(2))
@@ -1936,7 +1981,7 @@ def test_threadpool_limitation_in_child_context(
     # Skip this test if numpy is not linked to a BLAS library
     parent_info = _check_numpy_threadpool_limits()
     if len(parent_info) == 0:
-        pytest.skip(msg="Need a version of numpy linked to BLAS")
+        pytest.skip(reason="Need a version of numpy linked to BLAS")
 
     with context('loky', inner_max_num_threads=inner_max_num_threads):
         workers_threadpool_infos = Parallel(n_jobs=n_jobs)(
