@@ -271,7 +271,8 @@ def main(fd, verbose=0):
                                 f"(current {registry[rtype][name]})"
                             )
                     elif cmd == "UNREGISTER":
-                        del registry[rtype][name]
+                        if rtype in registry.keys() and name in registry[rtype].keys():
+                            del registry[rtype][name]
                         if verbose:
                             util.debug(
                                 f"[ResourceTracker] unregister {name} {rtype}: "
